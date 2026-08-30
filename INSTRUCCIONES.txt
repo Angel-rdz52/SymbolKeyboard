@@ -1,0 +1,100 @@
+========================================================
+ SYMBOL KEYBOARD - Instrucciones paso a paso
+========================================================
+
+Esta guía explica cómo subir el proyecto a GitHub, generar el APK
+automáticamente con GitHub Actions, descargarlo, instalarlo en tu celular
+y activar el teclado. No hace falta instalar Android Studio ni tener un
+keystore propio.
+
+--------------------------------------------------------
+1) SUBIR EL PROYECTO A GITHUB
+--------------------------------------------------------
+1. Entrá a https://github.com y creá un repositorio nuevo (puede ser
+   público o privado), por ejemplo llamado "symbol-keyboard".
+   No marques la opción de crear un README, para no pisar el que ya
+   viene en el proyecto.
+
+2. En tu computadora, dentro de la carpeta del proyecto (donde está este
+   archivo), abrí una terminal y ejecutá:
+
+     git init
+     git add .
+     git commit -m "Symbol Keyboard - primera versión"
+     git branch -M main
+     git remote add origin https://github.com/TU_USUARIO/symbol-keyboard.git
+     git push -u origin main
+
+   (Reemplazá TU_USUARIO y el nombre del repo por los tuyos).
+
+--------------------------------------------------------
+2) DISPARAR EL WORKFLOW DE GITHUB ACTIONS
+--------------------------------------------------------
+El workflow se dispara solo automáticamente cada vez que hacés push a la
+rama "main". Como recién hiciste el push inicial, ya debería estar
+corriendo. Si querés dispararlo manualmente en cualquier momento:
+
+1. Andá a tu repositorio en GitHub.
+2. Hacé clic en la pestaña "Actions" (arriba).
+3. En la lista de la izquierda, elegí el workflow "Build APK".
+4. Hacé clic en el botón "Run workflow" (arriba a la derecha), elegí la
+   rama "main" y confirmá.
+5. Esperá unos minutos a que la ejecución termine con el ícono verde
+   (tilde). Si aparece en rojo, hacé clic para ver el log de error.
+
+--------------------------------------------------------
+3) DESCARGAR EL APK DESDE ARTIFACTS
+--------------------------------------------------------
+1. Dentro de la pestaña "Actions", hacé clic en la ejecución (run) que
+   terminó en verde.
+2. Al final de la página vas a ver una sección llamada "Artifacts".
+3. Hacé clic en "symbol-keyboard-debug-apk" para descargar un .zip.
+4. Descomprimí el .zip: adentro vas a encontrar el archivo
+   "app-debug.apk". Ese es el instalador de la app.
+
+--------------------------------------------------------
+4) INSTALAR EL APK EN TU CELULAR
+--------------------------------------------------------
+1. Pasá el archivo "app-debug.apk" a tu celular Android (por cable USB,
+   por Drive, por WhatsApp a vos mismo, etc.).
+2. Abrí el archivo desde el celular (por ejemplo desde la app de
+   Archivos/Downloads).
+3. Si es la primera vez que instalás un APK fuera de Google Play, Android
+   te va a pedir permiso para "Instalar apps desconocidas" desde esa app
+   (por ejemplo, desde el explorador de archivos o el navegador). Aceptá
+   ese permiso y seguí con la instalación.
+4. Una vez instalada, vas a ver el ícono de "Symbol Keyboard" en el
+   cajón de aplicaciones.
+
+--------------------------------------------------------
+5) ACTIVAR EL TECLADO EN EL CELULAR
+--------------------------------------------------------
+1. Abrí la app "Symbol Keyboard".
+2. Tocá el botón "Activar teclado en Ajustes del sistema". Esto te lleva
+   directo a Ajustes > Sistema > Idiomas y entrada > Teclado virtual.
+3. Tocá "Gestionar teclados" (o "Administrar teclados", el texto exacto
+   varía según la marca/versión de Android) y activá el interruptor de
+   "Symbol Keyboard". Vas a ver un aviso de seguridad estándar de Android
+   sobre los permisos de un teclado (que puede leer lo que escribís) -
+   esto aparece para TODOS los teclados de terceros, es normal. Aceptá
+   para continuar.
+4. Volvé a la app Symbol Keyboard y configurá tu mapeo de caracteres (o
+   elegí un preset con el botón "Presets").
+5. Andá a cualquier app donde puedas escribir (por ejemplo Mensajes o
+   Notas) y tocá sobre un campo de texto para que aparezca el teclado.
+6. Tocá el ícono de teclado/globo en la barra inferior del teclado (o
+   mantené presionada la barra espaciadora) para abrir el selector rápido
+   de teclados, y elegí "Symbol Keyboard".
+7. ¡Listo! Empezá a escribir y vas a ver tus letras reemplazadas por los
+   símbolos que configuraste.
+
+--------------------------------------------------------
+NOTAS
+--------------------------------------------------------
+- El APK generado es un build de tipo "debug" firmado automáticamente por
+  el propio proceso de compilación (no hace falta ningún keystore ni
+  contraseña de tu parte).
+- Podés volver a la app en cualquier momento para cambiar el mapeo, activar
+  o desactivar el reemplazo, o cargar otro preset: los cambios se guardan
+  solos y el teclado los toma la próxima vez que lo abras.
+- Para desactivar el teclado, repetí el paso 5.2 y apagá el interruptor.
