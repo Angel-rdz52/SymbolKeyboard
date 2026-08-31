@@ -1,4 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Symbol Keyboard</string>
-</resources>
 
+    <string name="settings_title">Symbol Keyboard</string>
+    <string name="settings_subtitle">Reemplazá letras por símbolos Unicode mientras escribís</string>
+    <string name="btn_open_keyboard_settings">Activar teclado en Ajustes del sistema</string>
+    <string name="switch_enable_replacement">Reemplazo activado</string>
+    <string name="section_mapping">Mapeo de caracteres</string>
+    <string name="col_original">Original</string>
+    <string name="col_replacement">Reemplazo</string>
+    <string name="btn_add_row">Agregar fila</string>
+    <string name="btn_presets">Presets</string>
+    <string name="btn_delete_row">Borrar fila</string>
+    <string name="presets_title">Elegí un preset</string>
+    <string name="preset_upside_down">Al revés (ɐqɔp…)</string>
+    <string name="preset_leet">Leet speak (4, 3, 1, 0…)</string>
+    <string name="preset_runes">Runas (ᚨᛒᚲᛞ…)</string>
+    <string name="preset_circles">Círculos (ⓐⓑⓒⓓ…)</string>
+    <string name="preset_none">Sin cambios (resetear)</string>
+    <string name="saved_confirmation">Cambios guardados</string>
+</resources>
