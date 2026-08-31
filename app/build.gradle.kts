@@ -4,7 +4,7 @@ plugins {
 }
 
 android {
-    namespace = "com.example.symbolkeyboard"
+    namespace = "com.symbolkeyboard.app"
     compileSdk = 34
 
     defaultConfig {
