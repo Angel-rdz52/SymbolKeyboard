@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <application
+        android:allowBackup="true"
+        android:label="Symbol Keyboard"
+        android:icon="@mipmap/ic_launcher"
+        android:theme="@style/Theme.SymbolKeyboard">
+
+        <!-- Pantalla de configuración: mapeo de 2 columnas, presets, etc. -->
+        <activity
+            android:name=".MainActivity"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <!-- El servicio IME: esto es lo que lo hace aparecer en el
+             selector de métodos de entrada del sistema. -->
+        <service
+            android:name=".SymbolKeyboardService"
+            android:label="Symbol Keyboard"
+            android:permission="android.permission.BIND_INPUT_METHOD"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.view.InputMethod" />
+            </intent-filter>
+            <meta-data
+                android:name="android.view.im"
+                android:resource="@xml/method" />
+        </service>
+
+    </application>
+</manifest>
