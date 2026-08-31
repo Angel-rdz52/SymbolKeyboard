@@ -1,181 +1,292 @@
-package com.example.symbolkeyboard
+package com.symbolkeyboard.app
 
 import android.content.Intent
 import android.os.Bundle
 import android.provider.Settings
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.TopAppBar
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-
-data class MapRow(var from: String, var to: String)
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        val repo = CharMapRepository(this)
+        val repository = CharMapRepository(applicationContext)
+
         setContent {
             MaterialTheme {
-                Surface {
+                Surface(modifier = Modifier.fillMaxSize()) {
                     SettingsScreen(
-                        repo = repo,
-                        onOpenSystemKeyboardSettings = {
-                            startActivity(Intent(Settings.ACTION_INPUT_METHOD_SETTINGS))
-                        }
+                        repository = repository,
+                        onOpenKeyboardSettings = { openKeyboardSettings() }
                     )
                 }
             }
         }
     }
+
+    private fun openKeyboardSettings() {
+        startActivity(Intent(Settings.ACTION_INPUT_METHOD_SETTINGS))
+    }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun SettingsScreen(repo: CharMapRepository, onOpenSystemKeyboardSettings: () -> Unit) {
-    var rows by remember {
-        mutableStateOf(repo.loadMap().map { MapRow(it.key, it.value) }.toMutableStateList())
-    }
-    var enabled by remember { mutableStateOf(repo.isEnabled()) }
-    var showPresets by remember { mutableStateOf(false) }
+/** Fila editable de mapeo: original -> reemplazo. */
+data class MapRow(var original: String, var replacement: String)
 
-    fun persist() {
-        repo.saveMap(rows.filter { it.from.isNotBlank() }.associate { it.from to it.to })
+@Composable
+fun SettingsScreen(
+    repository: CharMapRepository,
+    onOpenKeyboardSettings: () -> Unit
+) {
+    var enabled by remember { mutableStateOf(repository.isReplacementEnabled()) }
+    val rows = remember {
+        mutableStateListOf<MapRow>().apply {
+            repository.loadMap().forEach { (k, v) -> add(MapRow(k, v)) }
+        }
     }
+    var showPresetsDialog by remember { mutableStateOf(false) }
 
     Scaffold(
         topBar = {
-            TopAppBar(title = { Text("Symbol Keyboard") })
-        },
-        floatingActionButton = {
-            FloatingActionButton(onClick = {
-                rows.add(MapRow("", ""))
-            }) {
-                Icon(Icons.Filled.Add, contentDescription = "Agregar fila")
-            }
+            TopAppBar(title = { Text(text = "Symbol Keyboard") })
         }
     ) { padding ->
         Column(
             modifier = Modifier
+                .fillMaxSize()
                 .padding(padding)
                 .padding(16.dp)
-                .fillMaxSize()
         ) {
-            // Paso 1: activar el teclado en el sistema
-            ElevatedCard(modifier = Modifier.fillMaxWidth()) {
-                Column(Modifier.padding(16.dp)) {
-                    Text("1. Activá el teclado", fontWeight = FontWeight.Bold)
-                    Spacer(Modifier.height(4.dp))
-                    Text("Primero hay que habilitarlo como método de entrada del sistema.")
-                    Spacer(Modifier.height(8.dp))
-                    Button(onClick = onOpenSystemKeyboardSettings) {
-                        Text("Abrir ajustes de teclado")
+            Text(
+                text = "Reemplazá letras por símbolos Unicode mientras escribís",
+                style = MaterialTheme.typography.bodyMedium
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            Button(
+                onClick = onOpenKeyboardSettings,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("Activar teclado en Ajustes del sistema")
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text(text = "Reemplazo activado", style = MaterialTheme.typography.bodyLarge)
+                Switch(
+                    checked = enabled,
+                    onCheckedChange = {
+                        enabled = it
+                        repository.setReplacementEnabled(it)
                     }
+                )
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(text = "Mapeo de caracteres", style = MaterialTheme.typography.titleMedium)
+                OutlinedButton(onClick = { showPresetsDialog = true }) {
+                    Text("Presets")
                 }
             }
 
-            Spacer(Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(8.dp))
 
-            // Switch general on/off
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text("Reemplazo de símbolos activo", modifier = Modifier.weight(1f))
-                Switch(checked = enabled, onCheckedChange = {
-                    enabled = it
-                    repo.setEnabled(it)
-                })
+            Row(modifier = Modifier.fillMaxWidth()) {
+                Text(
+                    text = "Original",
+                    modifier = Modifier.weight(1f),
+                    style = MaterialTheme.typography.labelLarge
+                )
+                Text(
+                    text = "Reemplazo",
+                    modifier = Modifier.weight(1f),
+                    style = MaterialTheme.typography.labelLarge
+                )
+                Spacer(modifier = Modifier.height(1.dp))
             }
-
-            Spacer(Modifier.height(8.dp))
-
-            // Presets
-            OutlinedButton(onClick = { showPresets = true }, modifier = Modifier.fillMaxWidth()) {
-                Text("Cargar preset (Al revés, Leet, Runas, Círculos...)")
-            }
-
-            Spacer(Modifier.height(12.dp))
-
-            Text("2. Personalizá tu mapeo", fontWeight = FontWeight.Bold)
-            Spacer(Modifier.height(4.dp))
-
-            // Encabezado de las 2 columnas
-            Row(Modifier.fillMaxWidth()) {
-                Text("Original", modifier = Modifier.weight(1f), fontWeight = FontWeight.SemiBold)
-                Text("Reemplazo", modifier = Modifier.weight(1f), fontWeight = FontWeight.SemiBold)
-                Spacer(Modifier.width(40.dp))
-            }
-            Divider()
 
             LazyColumn(modifier = Modifier.weight(1f)) {
                 items(rows.size) { index ->
                     val row = rows[index]
                     Row(
-                        verticalAlignment = Alignment.CenterVertically,
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(vertical = 4.dp)
+                            .padding(vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
                         OutlinedTextField(
-                            value = row.from,
-                            onValueChange = { rows[index] = row.copy(from = it); persist() },
-                            singleLine = true,
-                            modifier = Modifier.weight(1f).padding(end = 4.dp),
-                            placeholder = { Text("a") }
+                            value = row.original,
+                            onValueChange = {
+                                rows[index] = row.copy(original = it)
+                                persistSilently(repository, rows, enabled)
+                            },
+                            modifier = Modifier
+                                .weight(1f)
+                                .padding(end = 4.dp),
+                            singleLine = true
                         )
                         OutlinedTextField(
-                            value = row.to,
-                            onValueChange = { rows[index] = row.copy(to = it); persist() },
-                            singleLine = true,
-                            modifier = Modifier.weight(1f).padding(end = 4.dp),
-                            placeholder = { Text("ɐ") }
+                            value = row.replacement,
+                            onValueChange = {
+                                rows[index] = row.copy(replacement = it)
+                                persistSilently(repository, rows, enabled)
+                            },
+                            modifier = Modifier
+                                .weight(1f)
+                                .padding(end = 4.dp),
+                            singleLine = true
                         )
                         IconButton(onClick = {
                             rows.removeAt(index)
-                            persist()
+                            persistSilently(repository, rows, enabled)
                         }) {
-                            Icon(Icons.Filled.Delete, contentDescription = "Borrar")
+                            Icon(Icons.Filled.Delete, contentDescription = "Borrar fila")
                         }
                     }
                 }
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            OutlinedButton(
+                onClick = {
+                    rows.add(MapRow("", ""))
+                },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("Agregar fila")
             }
         }
     }
 
-    if (showPresets) {
-        AlertDialog(
-            onDismissRequest = { showPresets = false },
-            title = { Text("Elegí un preset") },
-            text = {
-                Column(Modifier.horizontalScroll(rememberScrollState())) {
-                    CharMapRepository.allPresets().forEach { (name, map) ->
-                        TextButton(onClick = {
-                            rows.clear()
-                            map.forEach { (k, v) -> rows.add(MapRow(k, v)) }
-                            persist()
-                            showPresets = false
-                        }) {
-                            Text(name)
-                        }
-                    }
-                }
-            },
-            confirmButton = {
-                TextButton(onClick = { showPresets = false }) { Text("Cerrar") }
+    if (showPresetsDialog) {
+        PresetsDialog(
+            onDismiss = { showPresetsDialog = false },
+            onPresetSelected = { preset ->
+                rows.clear()
+                preset.forEach { (k, v) -> rows.add(MapRow(k, v)) }
+                persistSilently(repository, rows, enabled)
+                showPresetsDialog = false
             }
         )
+    }
+}
+
+private fun persistSilently(
+    repository: CharMapRepository,
+    rows: List<MapRow>,
+    enabled: Boolean
+) {
+    val map = LinkedHashMap<String, String>()
+    for (row in rows) {
+        val key = row.original.trim()
+        if (key.isNotEmpty()) {
+            map[key] = row.replacement
+        }
+    }
+    repository.saveMap(map)
+    repository.setReplacementEnabled(enabled)
+}
+
+@Composable
+fun PresetsDialog(
+    onDismiss: () -> Unit,
+    onPresetSelected: (Map<String, String>) -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Elegí un preset") },
+        text = {
+            Column {
+                PresetOption("Al revés (ɐqɔp…)") {
+                    onPresetSelected(CharMapRepository.PRESET_UPSIDE_DOWN)
+                }
+                PresetOption("Leet speak (4, 3, 1, 0…)") {
+                    onPresetSelected(CharMapRepository.PRESET_LEET)
+                }
+                PresetOption("Runas (ᚨᛒᚲᛞ…)") {
+                    onPresetSelected(CharMapRepository.PRESET_RUNES)
+                }
+                PresetOption("Círculos (ⓐⓑⓒⓓ…)") {
+                    onPresetSelected(CharMapRepository.PRESET_CIRCLES)
+                }
+                PresetOption("Sin cambios (resetear)") {
+                    onPresetSelected(CharMapRepository.PRESET_NONE)
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cerrar")
+            }
+        }
+    )
+}
+
+@Composable
+private fun PresetOption(label: String, onClick: () -> Unit) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp),
+        colors = CardDefaults.cardColors()
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(12.dp)
+        ) {
+            TextButton(onClick = onClick) {
+                Text(label)
+            }
+        }
     }
 }
 
