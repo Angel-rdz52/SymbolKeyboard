@@ -12,4 +12,3 @@
         android:imeSubtypeMode="keyboard"
         android:isAsciiCapable="true" />
 </input-method>
-
