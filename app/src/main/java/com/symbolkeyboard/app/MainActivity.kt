@@ -68,6 +68,7 @@ class MainActivity : ComponentActivity() {
 /** Fila editable de mapeo: original -> reemplazo. */
 data class MapRow(var original: String, var replacement: String)
 
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
     repository: CharMapRepository,
