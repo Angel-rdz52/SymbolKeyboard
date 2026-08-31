@@ -27,6 +27,19 @@ class CharMapRepository(context: Context) {
     }
 
     /**
+     * Si está activado, las teclas del teclado muestran directamente el
+     * símbolo de reemplazo (por ejemplo "ɐ") en vez de la letra normal
+     * ("a"). Si está desactivado, las teclas siempre muestran las letras
+     * normales aunque el reemplazo esté activo al escribir.
+     */
+    fun isKeyPreviewEnabled(): Boolean =
+        prefs.getBoolean(KEY_PREVIEW, false)
+
+    fun setKeyPreviewEnabled(enabled: Boolean) {
+        prefs.edit().putBoolean(KEY_PREVIEW, enabled).apply()
+    }
+
+    /**
      * Carga el mapa de reemplazo guardado. Si no hay nada guardado todavía,
      * devuelve el preset "Al revés" como valor inicial por defecto.
      */
@@ -71,6 +84,7 @@ class CharMapRepository(context: Context) {
         private const val PREFS_NAME = "symbol_keyboard_prefs"
         private const val KEY_MAP = "char_map_json"
         private const val KEY_ENABLED = "replacement_enabled"
+        private const val KEY_PREVIEW = "key_preview_enabled"
 
         /**
          * Preset "Al revés": letras minúsculas dadas vuelta usando glifos

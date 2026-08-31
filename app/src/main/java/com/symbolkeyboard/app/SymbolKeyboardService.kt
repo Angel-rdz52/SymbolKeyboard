@@ -14,6 +14,10 @@ import android.view.inputmethod.EditorInfo
  * configurable por el usuario (CharMapRepository). Si existe reemplazo,
  * envía el reemplazo (respetando mayúsculas/minúsculas); si no, envía el
  * carácter original.
+ *
+ * Si el usuario activó la "vista previa" en los ajustes, además redibuja
+ * las teclas mostrando directamente el símbolo de reemplazo en vez de la
+ * letra normal.
  */
 class SymbolKeyboardService : InputMethodService(), KeyboardView.OnKeyboardActionListener {
 
@@ -23,9 +27,15 @@ class SymbolKeyboardService : InputMethodService(), KeyboardView.OnKeyboardActio
 
     private lateinit var repository: CharMapRepository
 
-    // Mapa de reemplazo vigente (siempre en minúsculas como clave).
+    // Mapa de reemplazo vigente.
     private var charMap: Map<String, String> = emptyMap()
     private var replacementEnabled: Boolean = true
+    private var keyPreviewEnabled: Boolean = false
+
+    // Guarda la letra "de fábrica" de cada tecla (codes[0] -> carácter
+    // original), para poder restaurar las etiquetas cuando se apaga la
+    // vista previa o cuando no hay reemplazo configurado para esa letra.
+    private val originalLetterByCode = HashMap<Int, Char>()
 
     private var isShiftOn = false
     private var isCapsLock = false
@@ -48,10 +58,23 @@ class SymbolKeyboardService : InputMethodService(), KeyboardView.OnKeyboardActio
         qwertyKeyboard = Keyboard(this, R.xml.qwerty)
         symbolsKeyboard = Keyboard(this, R.xml.symbols)
 
+        originalLetterByCode.clear()
+        for (key in qwertyKeyboard.keys) {
+            val code = key.codes.firstOrNull() ?: continue
+            if (code in 32..0x2764) {
+                val c = code.toChar()
+                if (Character.isLetter(c)) {
+                    originalLetterByCode[code] = c
+                }
+            }
+        }
+
         keyboardView = KeyboardView(this, null)
         keyboardView.keyboard = qwertyKeyboard
         keyboardView.setOnKeyboardActionListener(this)
         keyboardView.isPreviewEnabled = false
+
+        refreshKeyLabels()
 
         return keyboardView
     }
@@ -67,39 +90,37 @@ class SymbolKeyboardService : InputMethodService(), KeyboardView.OnKeyboardActio
         if (::keyboardView.isInitialized) {
             keyboardView.keyboard = qwertyKeyboard
             qwertyKeyboard.isShifted = false
+            refreshKeyLabels()
         }
     }
 
     private fun reloadCharMap() {
         replacementEnabled = repository.isReplacementEnabled()
+        keyPreviewEnabled = repository.isKeyPreviewEnabled()
         charMap = repository.loadMap()
     }
 
     // --- Lógica de reemplazo de caracteres -------------------------------
 
     /**
-     * Dado un carácter recién tipeado, busca su reemplazo en el mapa
-     * (siempre indexado por la versión en minúscula) y devuelve el
-     * reemplazo respetando si el original era mayúscula o minúscula.
-     * Si no existe reemplazo o el reemplazo está desactivado, devuelve
-     * el carácter original sin modificar.
+     * Dado un carácter recién tipeado, busca su reemplazo y devuelve el
+     * resultado a enviar. Primero busca una coincidencia EXACTA en el mapa
+     * (respetando mayúscula/minúscula tal como el usuario la configuró:
+     * por ejemplo, se puede mapear "a" y "A" a símbolos distintos). Si no
+     * hay coincidencia exacta, prueba con la versión en minúscula del
+     * carácter y ajusta automáticamente a mayúscula si corresponde.
      */
     private fun applyReplacement(char: Char): String {
         if (!replacementEnabled) return char.toString()
+
+        charMap[char.toString()]?.let { return it }
 
         val isUpper = char.isUpperCase()
         val lowerKey = char.lowercaseChar().toString()
         val replacement = charMap[lowerKey] ?: return char.toString()
 
         return if (isUpper) {
-            // Si el reemplazo tiene un único carácter, lo pasamos a
-            // mayúscula. Si es un glifo compuesto (ej. "x" -> "ᚴᛋ"),
-            // lo dejamos tal cual ya que no siempre tiene mayúscula.
-            if (replacement.length == 1) {
-                replacement.uppercase()
-            } else {
-                replacement
-            }
+            if (replacement.length == 1) replacement.uppercase() else replacement
         } else {
             replacement
         }
@@ -108,6 +129,32 @@ class SymbolKeyboardService : InputMethodService(), KeyboardView.OnKeyboardActio
     private fun commitReplacedChar(codeChar: Char) {
         val output = applyReplacement(codeChar)
         currentInputConnection?.commitText(output, 1)
+    }
+
+    /**
+     * Recorre las teclas de letras y actualiza su etiqueta visible según
+     * corresponda: si la vista previa está activada y hay un reemplazo
+     * configurado para esa letra, muestra el símbolo; si no, muestra la
+     * letra normal (en mayúscula si el shift/caps lock está activo).
+     */
+    private fun refreshKeyLabels() {
+        if (!::qwertyKeyboard.isInitialized || !::keyboardView.isInitialized) return
+
+        val shifted = isShiftOn || isCapsLock
+
+        for (key in qwertyKeyboard.keys) {
+            val code = key.codes.firstOrNull() ?: continue
+            val baseChar = originalLetterByCode[code] ?: continue
+
+            val displayChar = if (shifted) baseChar.uppercaseChar() else baseChar
+
+            key.label = if (keyPreviewEnabled && replacementEnabled) {
+                applyReplacement(displayChar)
+            } else {
+                displayChar.toString()
+            }
+        }
+        keyboardView.invalidateAllKeys()
     }
 
     // --- KeyboardView.OnKeyboardActionListener ----------------------------
@@ -146,7 +193,7 @@ class SymbolKeyboardService : InputMethodService(), KeyboardView.OnKeyboardActio
                 if (isShiftOn && !isCapsLock) {
                     isShiftOn = false
                     qwertyKeyboard.isShifted = false
-                    keyboardView.invalidateAllKeys()
+                    refreshKeyLabels()
                 }
             }
         }
@@ -165,7 +212,7 @@ class SymbolKeyboardService : InputMethodService(), KeyboardView.OnKeyboardActio
             isShiftOn = true
         }
         qwertyKeyboard.isShifted = isShiftOn || isCapsLock
-        keyboardView.invalidateAllKeys()
+        refreshKeyLabels()
     }
 
     private fun switchToSymbols() {
@@ -176,6 +223,7 @@ class SymbolKeyboardService : InputMethodService(), KeyboardView.OnKeyboardActio
     private fun switchToLetters() {
         isSymbolsMode = false
         keyboardView.keyboard = qwertyKeyboard
+        refreshKeyLabels()
     }
 
     override fun onPress(primaryCode: Int) {}

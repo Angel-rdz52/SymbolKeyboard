@@ -22,12 +22,16 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Snackbar
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -38,10 +42,12 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -68,13 +74,17 @@ class MainActivity : ComponentActivity() {
 /** Fila editable de mapeo: original -> reemplazo. */
 data class MapRow(var original: String, var replacement: String)
 
-@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
     repository: CharMapRepository,
     onOpenKeyboardSettings: () -> Unit
 ) {
+    val snackbarHostState = remember { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
+
     var enabled by remember { mutableStateOf(repository.isReplacementEnabled()) }
+    var keyPreviewEnabled by remember { mutableStateOf(repository.isKeyPreviewEnabled()) }
     val rows = remember {
         mutableStateListOf<MapRow>().apply {
             repository.loadMap().forEach { (k, v) -> add(MapRow(k, v)) }
@@ -82,10 +92,28 @@ fun SettingsScreen(
     }
     var showPresetsDialog by remember { mutableStateOf(false) }
 
+    fun saveAll(showConfirmation: Boolean) {
+        val map = LinkedHashMap<String, String>()
+        for (row in rows) {
+            if (row.original.isNotEmpty()) {
+                map[row.original] = row.replacement
+            }
+        }
+        repository.saveMap(map)
+        repository.setReplacementEnabled(enabled)
+        repository.setKeyPreviewEnabled(keyPreviewEnabled)
+        if (showConfirmation) {
+            scope.launch {
+                snackbarHostState.showSnackbar("Cambios guardados")
+            }
+        }
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(title = { Text(text = "Symbol Keyboard") })
-        }
+        },
+        snackbarHost = { SnackbarHost(hostState = snackbarHostState) }
     ) { padding ->
         Column(
             modifier = Modifier
@@ -119,7 +147,30 @@ fun SettingsScreen(
                     checked = enabled,
                     onCheckedChange = {
                         enabled = it
-                        repository.setReplacementEnabled(it)
+                        saveAll(showConfirmation = false)
+                    }
+                )
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(text = "Mostrar símbolos en el teclado", style = MaterialTheme.typography.bodyLarge)
+                    Text(
+                        text = "Las teclas muestran el símbolo en vez de la letra",
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
+                Switch(
+                    checked = keyPreviewEnabled,
+                    onCheckedChange = {
+                        keyPreviewEnabled = it
+                        saveAll(showConfirmation = false)
                     }
                 )
             }
@@ -136,6 +187,14 @@ fun SettingsScreen(
                     Text("Presets")
                 }
             }
+
+            Spacer(modifier = Modifier.height(4.dp))
+
+            Text(
+                text = "Podés mapear minúsculas, MAYÚSCULAS y símbolos por separado " +
+                    "(por ejemplo \"a\" y \"A\" con reemplazos distintos).",
+                style = MaterialTheme.typography.bodySmall
+            )
 
             Spacer(modifier = Modifier.height(8.dp))
 
@@ -164,10 +223,7 @@ fun SettingsScreen(
                     ) {
                         OutlinedTextField(
                             value = row.original,
-                            onValueChange = {
-                                rows[index] = row.copy(original = it)
-                                persistSilently(repository, rows, enabled)
-                            },
+                            onValueChange = { rows[index] = row.copy(original = it) },
                             modifier = Modifier
                                 .weight(1f)
                                 .padding(end = 4.dp),
@@ -175,10 +231,7 @@ fun SettingsScreen(
                         )
                         OutlinedTextField(
                             value = row.replacement,
-                            onValueChange = {
-                                rows[index] = row.copy(replacement = it)
-                                persistSilently(repository, rows, enabled)
-                            },
+                            onValueChange = { rows[index] = row.copy(replacement = it) },
                             modifier = Modifier
                                 .weight(1f)
                                 .padding(end = 4.dp),
@@ -186,7 +239,7 @@ fun SettingsScreen(
                         )
                         IconButton(onClick = {
                             rows.removeAt(index)
-                            persistSilently(repository, rows, enabled)
+                            saveAll(showConfirmation = false)
                         }) {
                             Icon(Icons.Filled.Delete, contentDescription = "Borrar fila")
                         }
@@ -197,12 +250,19 @@ fun SettingsScreen(
             Spacer(modifier = Modifier.height(8.dp))
 
             OutlinedButton(
-                onClick = {
-                    rows.add(MapRow("", ""))
-                },
+                onClick = { rows.add(MapRow("", "")) },
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Text("Agregar fila")
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            Button(
+                onClick = { saveAll(showConfirmation = true) },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("Guardar cambios")
             }
         }
     }
@@ -213,27 +273,11 @@ fun SettingsScreen(
             onPresetSelected = { preset ->
                 rows.clear()
                 preset.forEach { (k, v) -> rows.add(MapRow(k, v)) }
-                persistSilently(repository, rows, enabled)
                 showPresetsDialog = false
+                saveAll(showConfirmation = true)
             }
         )
     }
-}
-
-private fun persistSilently(
-    repository: CharMapRepository,
-    rows: List<MapRow>,
-    enabled: Boolean
-) {
-    val map = LinkedHashMap<String, String>()
-    for (row in rows) {
-        val key = row.original.trim()
-        if (key.isNotEmpty()) {
-            map[key] = row.replacement
-        }
-    }
-    repository.saveMap(map)
-    repository.setReplacementEnabled(enabled)
 }
 
 @Composable
@@ -290,4 +334,3 @@ private fun PresetOption(label: String, onClick: () -> Unit) {
         }
     }
 }
-
